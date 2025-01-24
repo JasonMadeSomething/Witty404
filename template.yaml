@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  # Define the API Gateway REST API
+  ApiGatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: Witty404API
+      StageName: Prod
+      ApiKeySourceType: HEADER  # API key is passed in the headers
+      EndpointConfiguration: REGIONAL
+      Auth:
+        ApiKeyRequired: true  # Require API key for requests
+      Cors:  # Enable CORS for client-side applications
+        AllowMethods: "'POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Api-Key'"
+        AllowOrigin: "'*'"
+
+  
+  # Define the API Gateway Usage Plan
+  ApiGatewayUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      ApiStages:
+        - ApiId: !Ref ApiGatewayApi  # Correctly reference the API Gateway ID
+          Stage: !Ref ApiGatewayApiProdStage  # Reference the correct stage name
+      Throttle:
+        RateLimit: 10
+        BurstLimit: 2
+      Quota:
+        Limit: 1000
+        Period: MONTH
+
+  # Define the API Gateway API Key
+  ApiGatewayApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: Witty404APIKey
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref ApiGatewayApi  # Correctly reference the API Gateway ID
+          StageName: !Ref ApiGatewayApiProdStage  # Reference the correct stage name
+
+  # Link API Key to the Usage Plan
+  ApiGatewayApiKeyUsagePlan:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiGatewayApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref ApiGatewayUsagePlan
+
+  # Define the Lambda Function
+  Witty404Fn:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      CodeUri: ./wit
+      MemorySize: 128
+      Timeout: 15
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - "ssm:GetParameter"
+              Resource:
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/Witty404/*"
+      Environment:
+        Variables:
+          MONGO_URI_PARAM: "/Witty404/MONGO_URI"
+          OPENAI_API_KEY: "/Witty404/OPENAI_API_KEY"
+      Events:
+        WittyTextAPI:
+          Type: Api
+          Properties:
+            Path: /witty-text
+            Method: POST
+            RestApiId: !Ref ApiGatewayApi 
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL for Prod stage"
+    Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  ApiKey:
+    Description: "API Key for accessing the API"
+    Value: !Ref ApiGatewayApiKey
