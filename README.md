@@ -44,7 +44,7 @@ cd Witty404
 ### 2. Set Up MongoDB Atlas
 1. Create a MongoDB Atlas cluster.
 2. Add your current IP or NAT Gateway IP to the access list.
-3. Create a database named `404wit` and a collection named `cache`.
+3. Create a database named `Witty404` and a collection named `cache`.
 
 ### 3. Set Up Environment Variables
 Store sensitive variables in AWS SSM Parameter Store:
